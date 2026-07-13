@@ -22,19 +22,38 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack project zip if present
+
+      - name: Unpack any zip that's here
         run: |
-          if [ -f linkteen-site.zip ]; then unzip -o linkteen-site.zip; fi
+          Z=$(ls *.zip 2>/dev/null | head -1)
+          if [ -n "$Z" ]; then unzip -o "$Z"; fi
+
+      - name: Find the folder with package.json
+        id: appdir
+        run: |
+          if [ -f package.json ]; then
+            D="."
+          else
+            D=$(dirname "$(find . -maxdepth 3 -name package.json -not -path '*/node_modules/*' | head -1)")
+          fi
+          echo "Using app folder: $D"
+          echo "dir=$D" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - run: npm install
-        working-directory: linkteen-site
+        working-directory: ${{ steps.appdir.outputs.dir }}
+
       - run: npm run build
-        working-directory: linkteen-site
+        working-directory: ${{ steps.appdir.outputs.dir }}
+
       - uses: actions/configure-pages@v4
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: linkteen-site/dist
+          path: ${{ steps.appdir.outputs.dir }}/dist
+
       - id: deployment
         uses: actions/deploy-pages@v4
